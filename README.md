@@ -1,8 +1,8 @@
 # Review Workflow for Moodle
 
-Version **0.1.2**, an alpha release of `local_reviewworkflow`.
+Version **0.2.1**, an alpha release of `local_reviewworkflow`.
 
-Individual file-assignment monitoring, reviewer mappings, shared claims, structured assessments, certification and persistent notification accounting.
+Reviewer mapping CSV import, preview and confirmation, mapping export and import history.
 
 The plugin supports staff review of standard individual Moodle file assignments.
 Multiple teachers may be assigned to a student; one completed review satisfies

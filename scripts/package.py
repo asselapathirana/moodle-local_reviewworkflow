@@ -9,7 +9,7 @@ root = Path(__file__).resolve().parents[1]
 output = root / "build" / "reviewworkflow.zip"
 output.parent.mkdir(exist_ok=True)
 files = [root / name for name in ["version.php", "lib.php", "index.php", "configure.php",
-    "reviewers.php", "review.php", "README.md", "LICENSE"]]
+    "reviewers.php", "review.php", "import.php", "export.php", "history.php", "README.md", "LICENSE"]]
 for directory in ["classes", "db", "lang", "tests"]:
     files.extend(p for p in (root / directory).rglob("*") if p.is_file())
 with ZipFile(output, "w", ZIP_DEFLATED) as archive:

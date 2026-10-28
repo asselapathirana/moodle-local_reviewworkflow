@@ -28,6 +28,12 @@ if ($data = $form->get_data()) {
 }
 echo $OUTPUT->header(); echo $OUTPUT->heading(format_string($cm->name) . ': ' . get_string('reviewers', 'local_reviewworkflow'));
 echo html_writer::tag('p', get_string('mappinghelp', 'local_reviewworkflow'));
+echo html_writer::tag('p', implode(' | ', [
+    html_writer::link(new moodle_url('/local/reviewworkflow/import.php', ['cmid' => $cmid]), get_string('importreviewers', 'local_reviewworkflow')),
+    html_writer::link(new moodle_url('/local/reviewworkflow/export.php', ['cmid' => $cmid, 'idtype' => 'email']), get_string('importexportemail', 'local_reviewworkflow')),
+    html_writer::link(new moodle_url('/local/reviewworkflow/export.php', ['cmid' => $cmid, 'idtype' => 'username']), get_string('importexportusername', 'local_reviewworkflow')),
+    html_writer::link(new moodle_url('/local/reviewworkflow/history.php', ['cmid' => $cmid]), get_string('importhistory', 'local_reviewworkflow')),
+]));
 $form->display();
 $table = new html_table(); $table->head = [get_string('student', 'local_reviewworkflow'), get_string('reviewers', 'local_reviewworkflow')];
 foreach ($students as $id => $name) {

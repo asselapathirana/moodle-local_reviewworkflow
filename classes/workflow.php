@@ -6,7 +6,7 @@ defined('MOODLE_INTERNAL') || die();
 
 /** Persistent review lifecycle. All mutations share a cross-process Moodle lock. */
 final class workflow {
-    private static function locked(callable $callback) {
+    public static function locked(callable $callback) {
         $lock = \core\lock\lock_config::get_lock_factory('local_reviewworkflow')->get_lock('workflow', 10);
         if (!$lock) { throw new \moodle_exception('busy', 'local_reviewworkflow'); }
         try { return $callback(); } finally { $lock->release(); }
@@ -50,6 +50,16 @@ final class workflow {
             }
         }
         self::locked(function() use ($DB, $cm, $students, $reviewers, $remove) {
+            if ($remove) {
+                foreach ($students as $s) {
+                    foreach ($reviewers as $t) {
+                        if ($DB->record_exists('local_reviewworkflow_req', ['cmid' => $cm->id,
+                                'studentid' => (int)$s, 'claimedby' => (int)$t, 'state' => 'claimed'])) {
+                            throw new \moodle_exception('importmanualclaim', 'local_reviewworkflow');
+                        }
+                    }
+                }
+            }
             foreach ($students as $s) {
                 foreach ($reviewers as $t) {
                     $conditions = ['cmid' => $cm->id, 'studentid' => (int)$s, 'reviewerid' => (int)$t];
