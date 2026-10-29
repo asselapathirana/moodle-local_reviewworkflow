@@ -189,7 +189,7 @@ final class workflow {
     public static function current(\stdClass $r): bool {
         $cm = get_coursemodule_from_id('assign', $r->cmid);
         if (!$cm) { return false; }
-        foreach ((new adapter\assignment())->submissions($cm) as $s) {
+        foreach ((new adapter\assignment())->submissions($cm, (int)$r->studentid) as $s) {
             if ($s->studentid == $r->studentid && hash_equals($r->versionhash, $s->versionhash)) { return true; }
         }
         return false;
@@ -199,7 +199,7 @@ final class workflow {
         global $DB, $USER;
         $r = $DB->get_record('local_reviewworkflow_req', ['id' => $id], '*', MUST_EXIST);
         $cm = self::cm($r->cmid);
-        if (!access::manager($cm) && !access::mapped($cm, $r->studentid, $USER->id)) {
+        if (!access::manager($cm) && !exporter::allowed($cm) && !access::mapped($cm, $r->studentid, $USER->id)) {
             throw new \moodle_exception('forbidden', 'local_reviewworkflow');
         }
         return $r;
@@ -245,6 +245,7 @@ final class workflow {
             }
             $transaction = $DB->start_delegated_transaction();
             try {
+                if ($complete) { evidence::capture($r); }
                 $DB->update_record('local_reviewworkflow_req', $r);
                 self::audit($id, $complete ? 'completed' : 'draftsaved');
                 if ($complete) {

@@ -38,8 +38,9 @@ echo $OUTPUT->heading(format_string($cm->name) . ': ' . ($student ? fullname($st
 echo html_writer::tag('p', get_string('status', 'local_reviewworkflow') . ': ' . get_string('state_' . $r->state, 'local_reviewworkflow'));
 echo html_writer::tag('p', get_string('attempt', 'local_reviewworkflow', $r->attempt + 1));
 $current = \local_reviewworkflow\workflow::current($r);
-if ($current) {
-    $files = get_file_storage()->get_area_files($PAGE->context->id, 'assignsubmission_file', 'submission_files', $r->submissionid, 'filepath, filename', false);
+$evidence = \local_reviewworkflow\evidence::files($r);
+if ($evidence['files'] && \local_reviewworkflow\evidence::can_view($r)) {
+    $files = $evidence['files'];
     $links = [];
     foreach ($files as $f) {
         $url = moodle_url::make_pluginfile_url($f->get_contextid(), $f->get_component(), $f->get_filearea(),
@@ -47,6 +48,7 @@ if ($current) {
         $links[] = html_writer::link($url, s($f->get_filename()));
     }
     echo $OUTPUT->heading(get_string('files', 'local_reviewworkflow'), 3);
+    echo html_writer::tag('p', get_string('evidence_' . $evidence['provenance'], 'local_reviewworkflow'));
     echo html_writer::alist($links);
 } else {
     echo $OUTPUT->notification(get_string('historicalevidence', 'local_reviewworkflow'), 'warning');

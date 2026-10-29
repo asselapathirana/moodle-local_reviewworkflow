@@ -7,7 +7,7 @@
         <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true" />
         <FIELD NAME="cmid" TYPE="int" NOTNULL="true" SEQUENCE="false" LENGTH="10" DEFAULT="0" />
         <FIELD NAME="enabled" TYPE="int" NOTNULL="true" SEQUENCE="false" LENGTH="10" DEFAULT="0" />
-        <FIELD NAME="backlog" TYPE="char" NOTNULL="true" SEQUENCE="false" LENGTH="10" DEFAULT="" />
+        <FIELD NAME="backlog" TYPE="char" NOTNULL="true" SEQUENCE="false" LENGTH="10" />
         <FIELD NAME="instructions" TYPE="text" NOTNULL="true" SEQUENCE="false" />
         <FIELD NAME="certification" TYPE="text" NOTNULL="true" SEQUENCE="false" />
         <FIELD NAME="requestsubject" TYPE="text" NOTNULL="false" SEQUENCE="false" />
@@ -45,15 +45,16 @@
         <FIELD NAME="studentid" TYPE="int" NOTNULL="true" SEQUENCE="false" LENGTH="10" DEFAULT="0" />
         <FIELD NAME="submissionid" TYPE="int" NOTNULL="true" SEQUENCE="false" LENGTH="10" DEFAULT="0" />
         <FIELD NAME="attempt" TYPE="int" NOTNULL="true" SEQUENCE="false" LENGTH="10" DEFAULT="0" />
-        <FIELD NAME="versionhash" TYPE="char" NOTNULL="true" SEQUENCE="false" LENGTH="64" DEFAULT="" />
-        <FIELD NAME="state" TYPE="char" NOTNULL="true" SEQUENCE="false" LENGTH="32" DEFAULT="" />
+        <FIELD NAME="versionhash" TYPE="char" NOTNULL="true" SEQUENCE="false" LENGTH="64" />
+        <FIELD NAME="state" TYPE="char" NOTNULL="true" SEQUENCE="false" LENGTH="32" />
         <FIELD NAME="claimedby" TYPE="int" NOTNULL="true" SEQUENCE="false" LENGTH="10" DEFAULT="0" />
-        <FIELD NAME="decision" TYPE="char" NOTNULL="true" SEQUENCE="false" LENGTH="32" DEFAULT="" />
+        <FIELD NAME="decision" TYPE="char" NOTNULL="true" SEQUENCE="false" LENGTH="32" />
         <FIELD NAME="comments" TYPE="text" NOTNULL="true" SEQUENCE="false" />
         <FIELD NAME="certification" TYPE="text" NOTNULL="true" SEQUENCE="false" />
         <FIELD NAME="certified" TYPE="int" NOTNULL="true" SEQUENCE="false" LENGTH="10" DEFAULT="0" />
         <FIELD NAME="completedby" TYPE="int" NOTNULL="true" SEQUENCE="false" LENGTH="10" DEFAULT="0" />
         <FIELD NAME="timecompleted" TYPE="int" NOTNULL="true" SEQUENCE="false" LENGTH="10" DEFAULT="0" />
+        <FIELD NAME="evidencecaptured" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" />
         <FIELD NAME="timecreated" TYPE="int" NOTNULL="true" SEQUENCE="false" LENGTH="10" DEFAULT="0" />
         <FIELD NAME="timemodified" TYPE="int" NOTNULL="true" SEQUENCE="false" LENGTH="10" DEFAULT="0" />
       </FIELDS>
@@ -69,8 +70,8 @@
         <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true" />
         <FIELD NAME="requestid" TYPE="int" NOTNULL="true" SEQUENCE="false" LENGTH="10" DEFAULT="0" />
         <FIELD NAME="recipientid" TYPE="int" NOTNULL="true" SEQUENCE="false" LENGTH="10" DEFAULT="0" />
-        <FIELD NAME="kind" TYPE="char" NOTNULL="true" SEQUENCE="false" LENGTH="32" DEFAULT="" />
-        <FIELD NAME="state" TYPE="char" NOTNULL="true" SEQUENCE="false" LENGTH="32" DEFAULT="" />
+        <FIELD NAME="kind" TYPE="char" NOTNULL="true" SEQUENCE="false" LENGTH="32" />
+        <FIELD NAME="state" TYPE="char" NOTNULL="true" SEQUENCE="false" LENGTH="32" />
         <FIELD NAME="messageid" TYPE="int" NOTNULL="true" SEQUENCE="false" LENGTH="10" DEFAULT="0" />
         <FIELD NAME="error" TYPE="text" NOTNULL="true" SEQUENCE="false" />
         <FIELD NAME="timecreated" TYPE="int" NOTNULL="true" SEQUENCE="false" LENGTH="10" DEFAULT="0" />
@@ -88,7 +89,7 @@
         <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true" />
         <FIELD NAME="requestid" TYPE="int" NOTNULL="true" SEQUENCE="false" LENGTH="10" DEFAULT="0" />
         <FIELD NAME="actorid" TYPE="int" NOTNULL="true" SEQUENCE="false" LENGTH="10" DEFAULT="0" />
-        <FIELD NAME="action" TYPE="char" NOTNULL="true" SEQUENCE="false" LENGTH="32" DEFAULT="" />
+        <FIELD NAME="action" TYPE="char" NOTNULL="true" SEQUENCE="false" LENGTH="32" />
         <FIELD NAME="timecreated" TYPE="int" NOTNULL="true" SEQUENCE="false" LENGTH="10" DEFAULT="0" />
       </FIELDS>
       <KEYS>
@@ -134,6 +135,44 @@
       </KEYS>
       <INDEXES>
         <INDEX NAME="importid" UNIQUE="false" FIELDS="importid" />
+        <INDEX NAME="studentid" UNIQUE="false" FIELDS="studentid" />
+        <INDEX NAME="reviewerid" UNIQUE="false" FIELDS="reviewerid" />
+      </INDEXES>
+    </TABLE>
+    <TABLE NAME="local_reviewworkflow_exp" COMMENT="Review export data">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true" />
+        <FIELD NAME="courseid" TYPE="int" LENGTH="10" DEFAULT="0" NOTNULL="true" SEQUENCE="false" />
+        <FIELD NAME="userid" TYPE="int" LENGTH="10" DEFAULT="0" NOTNULL="true" SEQUENCE="false" />
+        <FIELD NAME="filters" TYPE="text" NOTNULL="true" SEQUENCE="false" />
+        <FIELD NAME="state" TYPE="char" LENGTH="50" NOTNULL="true" SEQUENCE="false" />
+        <FIELD NAME="total" TYPE="int" LENGTH="10" DEFAULT="0" NOTNULL="true" SEQUENCE="false" />
+        <FIELD NAME="processed" TYPE="int" LENGTH="10" DEFAULT="0" NOTNULL="true" SEQUENCE="false" />
+        <FIELD NAME="error" TYPE="char" LENGTH="50" NOTNULL="true" SEQUENCE="false" />
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" DEFAULT="0" NOTNULL="true" SEQUENCE="false" />
+        <FIELD NAME="timemodified" TYPE="int" LENGTH="10" DEFAULT="0" NOTNULL="true" SEQUENCE="false" />
+        <FIELD NAME="expires" TYPE="int" LENGTH="10" DEFAULT="0" NOTNULL="true" SEQUENCE="false" />
+      </FIELDS>
+      <KEYS><KEY NAME="primary" TYPE="primary" FIELDS="id" /></KEYS>
+      <INDEXES>
+        <INDEX NAME="courseid" UNIQUE="false" FIELDS="courseid" />
+        <INDEX NAME="userid" UNIQUE="false" FIELDS="userid" />
+      </INDEXES>
+    </TABLE>
+    <TABLE NAME="local_reviewworkflow_exi" COMMENT="Review export data">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true" />
+        <FIELD NAME="exportid" TYPE="int" LENGTH="10" DEFAULT="0" NOTNULL="true" SEQUENCE="false" />
+        <FIELD NAME="requestid" TYPE="int" LENGTH="10" DEFAULT="0" NOTNULL="true" SEQUENCE="false" />
+        <FIELD NAME="cmid" TYPE="int" LENGTH="10" DEFAULT="0" NOTNULL="true" SEQUENCE="false" />
+        <FIELD NAME="studentid" TYPE="int" LENGTH="10" DEFAULT="0" NOTNULL="true" SEQUENCE="false" />
+        <FIELD NAME="reviewerid" TYPE="int" LENGTH="10" DEFAULT="0" NOTNULL="true" SEQUENCE="false" />
+        <FIELD NAME="payload" TYPE="text" NOTNULL="true" SEQUENCE="false" />
+      </FIELDS>
+      <KEYS><KEY NAME="primary" TYPE="primary" FIELDS="id" /></KEYS>
+      <INDEXES>
+        <INDEX NAME="item" UNIQUE="true" FIELDS="exportid, requestid" />
+        <INDEX NAME="cmid" UNIQUE="false" FIELDS="cmid" />
         <INDEX NAME="studentid" UNIQUE="false" FIELDS="studentid" />
         <INDEX NAME="reviewerid" UNIQUE="false" FIELDS="reviewerid" />
       </INDEXES>

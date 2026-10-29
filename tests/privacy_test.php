@@ -3,15 +3,52 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 namespace local_reviewworkflow;
 defined('MOODLE_INTERNAL') || die();
+require_once(__DIR__ . '/export_fixture.php');
 
 final class privacy_test extends \core_privacy\tests\provider_testcase {
     public function test_metadata_declares_personal_records_and_message_link(): void {
         $this->resetAfterTest();
         $collection = new \core_privacy\local\metadata\collection('local_reviewworkflow');
         $result = \local_reviewworkflow\privacy\provider::get_metadata($collection);
-        $this->assertCount(8, $result->get_collection());
+        $this->assertCount(11, $result->get_collection());
         $this->assertInstanceOf(\core_privacy\local\metadata\provider::class,
             new \local_reviewworkflow\privacy\provider());
+    }
+
+    public function test_snapshot_and_export_erasure_invalidates_entire_related_package(): void {
+        global $DB;
+        $this->resetAfterTest(); $this->setAdminUser();
+        [$course, $student, $teacher, $cm, , $r] = export_fixture($this->getDataGenerator());
+        $this->setUser($teacher); workflow::claim($r->id);
+        workflow::save($r->id, 'acceptable', 'Synthetic review', true, true);
+        $this->setAdminUser(); $id = exporter::enqueue($course->id, []); exporter::build($id);
+        $ctx = \context_module::instance($cm->id); $coursectx = \context_course::instance($course->id);
+        $contexts = \local_reviewworkflow\privacy\provider::get_contexts_for_userid($student->id);
+        $this->assertContains((int)$coursectx->id, array_map('intval', $contexts->get_contextids()));
+        $approved = new \core_privacy\local\request\approved_contextlist($student,
+            'local_reviewworkflow', [$ctx->id, $coursectx->id]);
+        \local_reviewworkflow\privacy\provider::export_user_data($approved);
+        $data = \core_privacy\local\request\writer::with_context($coursectx)->get_data([]);
+        $this->assertCount(1, $data->exportitems);
+        \local_reviewworkflow\privacy\provider::delete_data_for_user($approved);
+        $this->assertSame('expired', $DB->get_field('local_reviewworkflow_exp', 'state', ['id' => $id]));
+        $this->assertEquals(0, $DB->count_records('local_reviewworkflow_exi', ['exportid' => $id]));
+        foreach ([[$ctx->id, 'evidence', $r->id], [$coursectx->id, 'export', $id]] as [$cid, $area, $item]) {
+            $this->assertCount(0, get_file_storage()->get_area_files($cid, 'local_reviewworkflow', $area, $item, '', false));
+        }
+    }
+
+    public function test_export_owner_without_review_mapping_is_discoverable_and_erasable(): void {
+        global $DB, $USER;
+        $this->resetAfterTest(); $this->setAdminUser();
+        [$course] = export_fixture($this->getDataGenerator());
+        $id = exporter::enqueue($course->id, []);
+        $ctx = \context_course::instance($course->id);
+        $contexts = \local_reviewworkflow\privacy\provider::get_contexts_for_userid($USER->id);
+        $this->assertContains((int)$ctx->id, array_map('intval', $contexts->get_contextids()));
+        $approved = new \core_privacy\local\request\approved_contextlist($USER, 'local_reviewworkflow', [$ctx->id]);
+        \local_reviewworkflow\privacy\provider::delete_data_for_user($approved);
+        $this->assertFalse($DB->record_exists('local_reviewworkflow_exp', ['id' => $id]));
     }
 
     public function test_context_discovery_and_user_erasure(): void {

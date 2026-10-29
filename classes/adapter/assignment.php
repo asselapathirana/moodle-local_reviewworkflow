@@ -16,13 +16,14 @@ final class assignment implements activity_adapter {
             ['assignment' => $a->id, 'plugin' => 'file', 'subtype' => 'assignsubmission', 'name' => 'enabled']);
     }
 
-    public function submissions(\stdClass $cm): \Generator {
+    public function submissions(\stdClass $cm, ?int $studentid = null): \Generator {
         global $DB;
         if (!$this->supports($cm)) { return; }
         $context = \context_module::instance($cm->id);
-        $records = $DB->get_recordset_select('assign_submission',
-            'assignment = :assignment AND latest = 1 AND status = :status AND userid > 0 AND groupid = 0',
-            ['assignment' => $cm->instance, 'status' => 'submitted'], 'id');
+        $where = 'assignment = :assignment AND latest = 1 AND status = :status AND userid > 0 AND groupid = 0';
+        $params = ['assignment' => $cm->instance, 'status' => 'submitted'];
+        if ($studentid !== null) { $where .= ' AND userid = :student'; $params['student'] = $studentid; }
+        $records = $DB->get_recordset_select('assign_submission', $where, $params, 'id');
         try {
             foreach ($records as $s) {
                 $files = get_file_storage()->get_area_files($context->id, 'assignsubmission_file',

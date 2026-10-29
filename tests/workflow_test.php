@@ -181,8 +181,8 @@ final class workflow_test extends \advanced_testcase {
         $DB->set_field('local_reviewworkflow_req', 'state', 'completed', []);
         $before = $DB->get_record('local_reviewworkflow_req', [], '*', MUST_EXIST);
         $notice = $DB->get_record('local_reviewworkflow_msg', [], '*', MUST_EXIST);
-        $DB->set_field('task_scheduled', 'minute', '*', ['component' => 'local_reviewworkflow']);
-        $DB->set_field('task_scheduled', 'customised', 1, ['component' => 'local_reviewworkflow']);
+        $DB->set_field('task_scheduled', 'minute', '*', ['component' => 'local_reviewworkflow', 'classname' => '\\local_reviewworkflow\\task\\scan']);
+        $DB->set_field('task_scheduled', 'customised', 1, ['component' => 'local_reviewworkflow', 'classname' => '\\local_reviewworkflow\\task\\scan']);
         require_once($CFG->libdir . '/upgradelib.php');
         require_once($CFG->dirroot . '/local/reviewworkflow/db/upgrade.php');
         $table = new \xmldb_table('local_reviewworkflow_cfg');
@@ -197,7 +197,7 @@ final class workflow_test extends \advanced_testcase {
         $this->assertSame('Certification', $cfg->certification);
         $this->assertEquals($before, $DB->get_record('local_reviewworkflow_req', ['id' => $before->id]));
         $this->assertEquals($notice, $DB->get_record('local_reviewworkflow_msg', ['id' => $notice->id]));
-        $this->assertSame('*', $DB->get_field('task_scheduled', 'minute', ['component' => 'local_reviewworkflow']));
+        $this->assertSame('*', $DB->get_field('task_scheduled', 'minute', ['component' => 'local_reviewworkflow', 'classname' => '\\local_reviewworkflow\\task\\scan']));
         $this->assertEquals(1, $DB->count_records('local_reviewworkflow_map'));
         $sink = $this->redirectMessages(); workflow::scan();
         $this->assertEquals(0, $DB->count_records('local_reviewworkflow_msg', ['kind' => 'completion']));

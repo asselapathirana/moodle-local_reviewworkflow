@@ -51,5 +51,18 @@ function xmldb_local_reviewworkflow_upgrade($oldversion): bool {
         }
         upgrade_plugin_savepoint(true, 2026102900, 'local', 'reviewworkflow');
     }
+    if ($oldversion < 2026102901) {
+        $dbman = $DB->get_manager();
+        $table = new xmldb_table('local_reviewworkflow_req');
+        $field = new xmldb_field('evidencecaptured', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0');
+        if (!$dbman->field_exists($table, $field)) { $dbman->add_field($table, $field); }
+        $xml = new xmldb_file(__DIR__ . '/install.xml');
+        $xml->loadXMLStructure();
+        foreach (['local_reviewworkflow_exp', 'local_reviewworkflow_exi'] as $name) {
+            $table = $xml->getStructure()->getTable($name);
+            if (!$dbman->table_exists($table)) { $dbman->create_table($table); }
+        }
+        upgrade_plugin_savepoint(true, 2026102901, 'local', 'reviewworkflow');
+    }
     return true;
 }
