@@ -10,6 +10,10 @@
         <FIELD NAME="backlog" TYPE="char" NOTNULL="true" SEQUENCE="false" LENGTH="10" DEFAULT="" />
         <FIELD NAME="instructions" TYPE="text" NOTNULL="true" SEQUENCE="false" />
         <FIELD NAME="certification" TYPE="text" NOTNULL="true" SEQUENCE="false" />
+        <FIELD NAME="requestsubject" TYPE="text" NOTNULL="false" SEQUENCE="false" />
+        <FIELD NAME="requestbody" TYPE="text" NOTNULL="false" SEQUENCE="false" />
+        <FIELD NAME="completesubject" TYPE="text" NOTNULL="false" SEQUENCE="false" />
+        <FIELD NAME="completebody" TYPE="text" NOTNULL="false" SEQUENCE="false" />
         <FIELD NAME="timecreated" TYPE="int" NOTNULL="true" SEQUENCE="false" LENGTH="10" DEFAULT="0" />
         <FIELD NAME="timemodified" TYPE="int" NOTNULL="true" SEQUENCE="false" LENGTH="10" DEFAULT="0" />
       </FIELDS>

@@ -45,6 +45,165 @@ final class workflow_test extends \advanced_testcase {
         $this->assertEquals(0, $DB->count_records('assign_grades'));
     }
 
+    public function test_assignment_templates_are_saved_and_personalised_per_teacher(): void {
+        global $DB;
+        [, $student, $t1, $t2, $cm] = $this->fixture();
+        $templates = email_template::defaults();
+        $templates['requestsubject'] = 'Please review {student_name}';
+        $templates['requestbody'] = 'Hello {reviewer_firstname}, please check {assignment_name}.';
+        workflow::configure($cm, 'include', '', 'Certification', true, $templates);
+        $this->assertSame($templates['requestbody'], $DB->get_field('local_reviewworkflow_cfg', 'requestbody', ['cmid' => $cm->id]));
+        workflow::map($cm, [$student->id], [$t1->id, $t2->id]);
+        $sink = $this->redirectMessages(); workflow::scan();
+        $messages = $sink->get_messages();
+        $this->assertCount(2, $messages);
+        $this->assertSame('Please review ' . fullname($student), $messages[0]->subject);
+        foreach ($messages as $message) {
+            $teacher = $message->useridto == $t1->id ? $t1 : $t2;
+            $this->assertStringContainsString('Hello ' . $teacher->firstname, $message->fullmessage);
+            $this->assertStringContainsString('[Optional:', $message->fullmessage);
+        }
+        // Old callers changing unrelated settings must retain email customisations.
+        workflow::configure($cm, 'include', 'New instructions', 'Certification');
+        $this->assertSame($templates['requestbody'], $DB->get_field('local_reviewworkflow_cfg', 'requestbody', ['cmid' => $cm->id]));
+    }
+
+    public function test_invalid_templates_do_not_change_configuration(): void {
+        global $DB;
+        [, , , , $cm] = $this->fixture();
+        workflow::configure($cm, 'include', '', 'Certification');
+        $before = $DB->get_record('local_reviewworkflow_cfg', ['cmid' => $cm->id]);
+        try {
+            workflow::configure($cm, 'include', 'Changed', 'Changed', true, ['requestbody' => '{not_a_field}']);
+            $this->fail('Invalid template should reject the entire configuration save');
+        } catch (\moodle_exception $e) { $this->assertSame('invalidconfig', $e->errorcode); }
+        $this->assertEquals($before, $DB->get_record('local_reviewworkflow_cfg', ['cmid' => $cm->id]));
+    }
+
+    public function test_completion_notifies_all_assigned_teachers_once_with_reviewer_name(): void {
+        global $DB;
+        [, $student, $t1, $t2, $cm] = $this->fixture();
+        workflow::configure($cm, 'include', '', 'Certification', true,
+            ['completebody' => 'Dear {reviewer_firstname}, {completed_by} reviewed {student_name}.']);
+        workflow::map($cm, [$student->id], [$t1->id, $t2->id]);
+        $sink = $this->redirectMessages(); workflow::scan(); $sink->clear();
+        $r = $DB->get_record('local_reviewworkflow_req', [], '*', MUST_EXIST);
+        $this->setUser($t1); workflow::claim($r->id);
+        workflow::save($r->id, 'acceptable', 'Private assessment comments', false, false);
+        $this->assertEquals(0, $DB->count_records('local_reviewworkflow_msg', ['kind' => 'completion']));
+        workflow::save($r->id, 'acceptable', 'Private assessment comments', true, true);
+        $this->assertEquals(2, $DB->count_records('local_reviewworkflow_msg', ['kind' => 'completion', 'state' => 'queued']));
+        for ($i = 0; $i < 25; $i++) { workflow::scan(); }
+        $messages = $sink->get_messages();
+        $this->assertCount(2, $messages);
+        foreach ($messages as $message) {
+            $teacher = $message->useridto == $t1->id ? $t1 : $t2;
+            $this->assertStringContainsString('Dear ' . $teacher->firstname, $message->fullmessage);
+            $this->assertStringContainsString(fullname($t1) . ' reviewed ' . fullname($student), $message->fullmessage);
+            $this->assertStringNotContainsString('Private assessment comments', $message->fullmessage);
+            $this->assertSame('review_completed', $message->eventtype);
+        }
+        $this->assertEquals(2, $DB->count_records('local_reviewworkflow_msg', ['kind' => 'completion', 'state' => 'accepted']));
+        try {
+            workflow::save($r->id, 'acceptable', '', true, true);
+            $this->fail('Completed review cannot complete twice');
+        } catch (\moodle_exception $e) { $this->assertSame('claimed', $e->errorcode); }
+        $this->assertEquals(2, $DB->count_records('local_reviewworkflow_msg', ['kind' => 'completion']));
+    }
+
+    public function test_completion_rechecks_recipients_and_retains_old_attempt_notice(): void {
+        global $DB;
+        [, $student, $t1, $t2, $cm, $file] = $this->fixture();
+        workflow::configure($cm, 'include', '', 'Certification');
+        workflow::map($cm, [$student->id], [$t1->id, $t2->id]); workflow::scan(false);
+        $r = $DB->get_record('local_reviewworkflow_req', [], '*', MUST_EXIST);
+        $this->setUser($t1); workflow::claim($r->id);
+        workflow::save($r->id, 'acceptable', '', true, true);
+        $this->setAdminUser(); workflow::map($cm, [$student->id], [$t2->id], true);
+        get_file_storage()->delete_area_files($file['contextid'], $file['component'], $file['filearea'], $file['itemid']);
+        get_file_storage()->create_file_from_string($file, 'New evidence after completion');
+        $sink = $this->redirectMessages(); workflow::deliver();
+        $this->assertCount(1, $sink->get_messages());
+        $this->assertEquals($t1->id, $sink->get_messages()[0]->useridto);
+        $this->assertEquals(1, $DB->count_records('local_reviewworkflow_msg', ['kind' => 'completion', 'state' => 'skipped']));
+        workflow::scan();
+        $this->assertCount(2, $sink->get_messages()); // A separate initial notice for the new version.
+    }
+
+    public function test_completion_uncertainty_is_not_retried_or_backfilled(): void {
+        global $DB;
+        [, $student, $t1, , $cm] = $this->fixture();
+        workflow::configure($cm, 'include', '', 'Certification');
+        workflow::map($cm, [$student->id], [$t1->id]); workflow::scan(false);
+        $r = $DB->get_record('local_reviewworkflow_req', [], '*', MUST_EXIST);
+        $this->setUser($t1); workflow::claim($r->id);
+        workflow::save($r->id, 'acceptable', '', true, true);
+        workflow::deliver(function($message) { return false; });
+        $this->assertEquals(1, $DB->count_records('local_reviewworkflow_msg', ['kind' => 'completion', 'state' => 'uncertain']));
+        $sink = $this->redirectMessages(); workflow::scan();
+        $this->assertCount(0, $sink->get_messages());
+        // Simulate a pre-upgrade completion: scanner must not backfill notices.
+        $DB->delete_records('local_reviewworkflow_msg', ['kind' => 'completion']);
+        workflow::scan();
+        $this->assertEquals(0, $DB->count_records('local_reviewworkflow_msg', ['kind' => 'completion']));
+        $this->assertCount(0, $sink->get_messages());
+    }
+
+    public function test_failed_completion_audit_rolls_back_review_and_notification_queue(): void {
+        global $DB;
+        [, $student, $t1, , $cm] = $this->fixture();
+        $this->preventResetByRollback();
+        workflow::configure($cm, 'include', '', 'Certification');
+        workflow::map($cm, [$student->id], [$t1->id]); workflow::scan(false);
+        $r = $DB->get_record('local_reviewworkflow_req', [], '*', MUST_EXIST);
+        $this->setUser($t1); workflow::claim($r->id);
+        $DB->insert_record('local_reviewworkflow_log', (object)[
+            'requestid' => $r->id, 'actorid' => $t1->id, 'action' => 'completed', 'timecreated' => time()]);
+        // Inject a real persistence failure in the isolated test DB only.
+        $DB->execute('CREATE UNIQUE INDEX rw_test_audit_failure ON {local_reviewworkflow_log} (requestid, action)');
+        try {
+            try {
+                workflow::save($r->id, 'acceptable', '', true, true);
+                $this->fail('Expected an injected audit write failure');
+            } catch (\dml_write_exception $e) {
+                $this->assertSame('claimed', $DB->get_field('local_reviewworkflow_req', 'state', ['id' => $r->id]));
+                $this->assertEquals(0, $DB->count_records('local_reviewworkflow_msg', ['kind' => 'completion']));
+            }
+        } finally { $DB->execute('DROP INDEX rw_test_audit_failure'); }
+    }
+
+    public function test_template_upgrade_preserves_reviews_notifications_and_custom_schedule(): void {
+        global $DB, $CFG;
+        [, $student, $t1, , $cm] = $this->fixture();
+        $this->preventResetByRollback();
+        workflow::configure($cm, 'include', 'Instructions', 'Certification');
+        workflow::map($cm, [$student->id], [$t1->id]); workflow::scan(false);
+        $DB->set_field('local_reviewworkflow_req', 'state', 'completed', []);
+        $before = $DB->get_record('local_reviewworkflow_req', [], '*', MUST_EXIST);
+        $notice = $DB->get_record('local_reviewworkflow_msg', [], '*', MUST_EXIST);
+        $DB->set_field('task_scheduled', 'minute', '*', ['component' => 'local_reviewworkflow']);
+        $DB->set_field('task_scheduled', 'customised', 1, ['component' => 'local_reviewworkflow']);
+        require_once($CFG->libdir . '/upgradelib.php');
+        require_once($CFG->dirroot . '/local/reviewworkflow/db/upgrade.php');
+        $table = new \xmldb_table('local_reviewworkflow_cfg');
+        foreach (email_template::FIELDS as $field) {
+            $DB->get_manager()->drop_field($table, new \xmldb_field($field));
+        }
+        set_config('version', 2026102804, 'local_reviewworkflow');
+        $this->assertTrue(xmldb_local_reviewworkflow_upgrade(2026102804));
+        $cfg = $DB->get_record('local_reviewworkflow_cfg', ['cmid' => $cm->id]);
+        foreach (email_template::FIELDS as $field) { $this->assertNull($cfg->$field); }
+        $this->assertSame('Instructions', $cfg->instructions);
+        $this->assertSame('Certification', $cfg->certification);
+        $this->assertEquals($before, $DB->get_record('local_reviewworkflow_req', ['id' => $before->id]));
+        $this->assertEquals($notice, $DB->get_record('local_reviewworkflow_msg', ['id' => $notice->id]));
+        $this->assertSame('*', $DB->get_field('task_scheduled', 'minute', ['component' => 'local_reviewworkflow']));
+        $this->assertEquals(1, $DB->count_records('local_reviewworkflow_map'));
+        $sink = $this->redirectMessages(); workflow::scan();
+        $this->assertEquals(0, $DB->count_records('local_reviewworkflow_msg', ['kind' => 'completion']));
+        $this->assertCount(0, $sink->get_messages());
+    }
+
     public function test_backlog_exclusion_and_changed_files(): void {
         global $DB;
         [, $student, $t1, , $cm, $file] = $this->fixture();
@@ -158,8 +317,9 @@ final class workflow_test extends \advanced_testcase {
         $this->setUser($t1); workflow::claim($r->id);
         workflow::save($r->id, 'acceptable', '', true, true);
         $sink = $this->redirectMessages(); workflow::deliver();
-        $this->assertCount(0, $sink->get_messages());
-        $this->assertEquals(2, $DB->count_records('local_reviewworkflow_msg', ['state' => 'skipped']));
+        $this->assertCount(2, $sink->get_messages());
+        foreach ($sink->get_messages() as $message) { $this->assertSame('review_completed', $message->eventtype); }
+        $this->assertEquals(2, $DB->count_records('local_reviewworkflow_msg', ['kind' => 'initial', 'state' => 'skipped']));
     }
 
     public function test_manual_scan_is_confined_to_one_course(): void {

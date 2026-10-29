@@ -17,7 +17,7 @@ final class workflow {
     }
 
     public static function configure(\stdClass $cm, string $backlog, string $instructions,
-            string $certification, bool $enabled = true): void {
+            string $certification, bool $enabled = true, ?array $templates = null): void {
         global $DB;
         if (!access::manager($cm)) { throw new \moodle_exception('forbidden', 'local_reviewworkflow'); }
         if (!in_array($backlog, ['include', 'exclude']) || !trim($certification)) {
@@ -26,12 +26,19 @@ final class workflow {
         if (!(new adapter\assignment())->supports($cm)) {
             throw new \moodle_exception('unsupported', 'local_reviewworkflow');
         }
-        self::locked(function() use ($DB, $cm, $backlog, $instructions, $certification, $enabled) {
+        foreach ($templates ?? [] as $field => $value) {
+            if (!in_array($field, email_template::FIELDS, true)
+                    || email_template::validate($field, (string)$value) !== null) {
+                throw new \moodle_exception('invalidconfig', 'local_reviewworkflow');
+            }
+        }
+        self::locked(function() use ($DB, $cm, $backlog, $instructions, $certification, $enabled, $templates) {
             $cfg = $DB->get_record('local_reviewworkflow_cfg', ['cmid' => $cm->id]);
             $new = !$cfg;
             $cfg = $cfg ?: (object)['cmid' => $cm->id, 'timecreated' => time()];
             $cfg->backlog = $new ? $backlog : $cfg->backlog;
             $cfg->instructions = $instructions; $cfg->certification = $certification;
+            foreach ($templates ?? [] as $field => $value) { $cfg->$field = $value; }
             $cfg->enabled = (int)$enabled; $cfg->timemodified = time();
             if ($new) { $cfg->id = $DB->insert_record('local_reviewworkflow_cfg', $cfg); }
             else { $DB->update_record('local_reviewworkflow_cfg', $cfg); }
@@ -140,8 +147,11 @@ final class workflow {
                 $cm = $r ? get_coursemodule_from_id('assign', $r->cmid) : false;
                 if ($courseid && (!$cm || $cm->course != $courseid)) { continue; }
                 $cfg = $cm ? $DB->get_record('local_reviewworkflow_cfg', ['cmid' => $cm->id]) : false;
-                if (!$r || !$cm || !$cfg || !$cfg->enabled || !in_array($r->state, ['pending', 'claimed'])
-                        || !access::mapped($cm, $r->studentid, $n->recipientid) || !self::current($r)) {
+                $ready = $r && ($n->kind === 'initial'
+                    ? in_array($r->state, ['pending', 'claimed']) && self::current($r)
+                    : $n->kind === 'completion' && $r->state === 'completed' && $r->completedby > 0);
+                if (!$ready || !$cm || !$cfg || !$cfg->enabled
+                        || !access::mapped($cm, $r->studentid, $n->recipientid)) {
                     $n->state = 'skipped'; $n->timemodified = time();
                     $DB->update_record('local_reviewworkflow_msg', $n); continue;
                 }
@@ -149,18 +159,16 @@ final class workflow {
                 $DB->update_record('local_reviewworkflow_msg', $n);
                 try {
                     $message = new \core\message\message();
-                    $message->component = 'local_reviewworkflow'; $message->name = 'review_request';
+                    $message->component = 'local_reviewworkflow';
+                    $message->name = $n->kind === 'completion' ? 'review_completed' : 'review_request';
                     $message->userfrom = \core_user::get_noreply_user();
                     $message->userto = \core_user::get_user($n->recipientid);
                     $course = get_course($cm->course);
                     $message->courseid = $course->id; $message->notification = 1;
-                    $a = (object)['course' => format_string($course->fullname), 'assignment' => format_string($cm->name),
-                        'student' => fullname(\core_user::get_user($r->studentid))];
-                    $message->subject = get_string('emailsubject', 'local_reviewworkflow', $a);
+                    $mail = email_template::render($cfg, $n->kind, email_template::values($cm, $r, $message->userto));
+                    $message->subject = $mail->subject;
                     $url = new \moodle_url('/local/reviewworkflow/review.php', ['id' => $r->id]);
-                    $evidence = new \moodle_url('/mod/assign/view.php', ['id' => $cm->id]);
-                    $message->fullmessage = get_string('emailbody', 'local_reviewworkflow', $a)
-                        . "\n\n" . $url->out(false) . "\n" . $evidence->out(false);
+                    $message->fullmessage = $mail->body;
                     $message->fullmessageformat = FORMAT_PLAIN;
                     $message->fullmessagehtml = ''; $message->smallmessage = $message->fullmessage;
                     $message->contexturl = $url->out(false); $message->contexturlname = get_string('review', 'local_reviewworkflow');
@@ -235,8 +243,25 @@ final class workflow {
                 $r->state = 'completed'; $r->certification = $cfg->certification; $r->certified = 1;
                 $r->completedby = $USER->id; $r->timecompleted = time();
             }
-            $DB->update_record('local_reviewworkflow_req', $r);
-            self::audit($id, $complete ? 'completed' : 'draftsaved');
+            $transaction = $DB->start_delegated_transaction();
+            try {
+                $DB->update_record('local_reviewworkflow_req', $r);
+                self::audit($id, $complete ? 'completed' : 'draftsaved');
+                if ($complete) {
+                    foreach ($DB->get_records('local_reviewworkflow_map', ['cmid' => $cm->id,
+                            'studentid' => $r->studentid]) as $mapping) {
+                        if (!access::mapped($cm, $r->studentid, $mapping->reviewerid)) { continue; }
+                        $key = ['requestid' => $r->id, 'recipientid' => $mapping->reviewerid, 'kind' => 'completion'];
+                        if (!$DB->record_exists('local_reviewworkflow_msg', $key)) {
+                            $DB->insert_record('local_reviewworkflow_msg', (object)($key + [
+                                'state' => 'queued', 'messageid' => 0, 'error' => '',
+                                'timecreated' => time(), 'timemodified' => time(),
+                            ]));
+                        }
+                    }
+                }
+                $transaction->allow_commit();
+            } catch (\Throwable $e) { $transaction->rollback($e); }
         });
     }
 

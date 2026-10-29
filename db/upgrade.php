@@ -42,5 +42,14 @@ function xmldb_local_reviewworkflow_upgrade($oldversion): bool {
     if ($oldversion < 2026102804) {
         upgrade_plugin_savepoint(true, 2026102804, 'local', 'reviewworkflow');
     }
+    if ($oldversion < 2026102900) {
+        $dbman = $DB->get_manager();
+        $table = new xmldb_table('local_reviewworkflow_cfg');
+        foreach (['requestsubject', 'requestbody', 'completesubject', 'completebody'] as $name) {
+            $field = new xmldb_field($name, XMLDB_TYPE_TEXT, null, null, null, null, null);
+            if (!$dbman->field_exists($table, $field)) { $dbman->add_field($table, $field); }
+        }
+        upgrade_plugin_savepoint(true, 2026102900, 'local', 'reviewworkflow');
+    }
     return true;
 }

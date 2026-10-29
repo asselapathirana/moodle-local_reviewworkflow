@@ -10,7 +10,7 @@ final class provider implements
         \core_privacy\local\request\plugin\provider,
         \core_privacy\local\request\core_userlist_provider {
     public static function get_metadata(\core_privacy\local\metadata\collection $collection): \core_privacy\local\metadata\collection {
-        foreach (['cfg' => ['instructions', 'certification'],
+        foreach (['cfg' => ['instructions', 'certification', 'requestsubject', 'requestbody', 'completesubject', 'completebody'],
                 'map' => ['studentid', 'reviewerid'],
                 'req' => ['studentid', 'claimedby', 'completedby', 'decision', 'comments', 'certification', 'timecompleted'],
                 'msg' => ['recipientid', 'state', 'messageid', 'timemodified'],

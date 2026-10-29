@@ -6,4 +6,7 @@ defined('MOODLE_INTERNAL') || die();
 $messageproviders = ['review_request' => [
     'capability' => 'local/reviewworkflow:review',
     'defaults' => ['email' => MESSAGE_PERMITTED + MESSAGE_DEFAULT_ENABLED],
+], 'review_completed' => [
+    'capability' => 'local/reviewworkflow:review',
+    'defaults' => ['email' => MESSAGE_PERMITTED + MESSAGE_DEFAULT_ENABLED],
 ]];

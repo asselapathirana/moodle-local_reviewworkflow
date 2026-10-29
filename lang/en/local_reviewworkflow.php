@@ -5,9 +5,49 @@ $string['pluginname'] = 'Review Workflow';
 $string['reviewworkflow:manage'] = 'Configure review workflows and oversee reviews';
 $string['reviewworkflow:review'] = 'Review assigned submissions';
 $string['messageprovider:review_request'] = 'Submission review requests';
+$string['messageprovider:review_completed'] = 'Submission review completion notices';
 $string['taskscan'] = 'Detect submissions and send review requests';
 $string['emailsubject'] = 'Review requested: {$a->assignment} ({$a->student})';
 $string['emailbody'] = 'Submitted files from {$a->student} are ready for review in {$a->course}: {$a->assignment}. Please open the review page, examine the files and record your assessment. Any one eligible reviewer can complete the shared review.';
+$string['template_requestsubject'] = 'Review requested: {assignment_name} ({student_name})';
+$string['template_requestbody'] = 'Dear {reviewer_firstname},
+
+Submitted files from {student_name} are ready for review in {course_name}: {assignment_name}.
+
+Please examine the files and record your assessment and certification. Any one assigned teacher can complete the shared review.
+
+{review_link}
+
+{assignment_link}';
+$string['template_completesubject'] = 'Review completed: {assignment_name} ({student_name})';
+$string['template_completebody'] = 'Dear {reviewer_firstname},
+
+{completed_by} has completed the review of {student_name}\'s submission for {assignment_name} in {course_name}.
+
+Completed: {completed_at}. No further review is required for this submission.
+
+{review_link}
+
+{assignment_link}';
+$string['emailreviewlink'] = 'Open submission and complete review:';
+$string['emailcompletedlink'] = 'View completed review:';
+$string['emailoptionallink'] = 'Optional: open the Moodle assignment page:';
+$string['emailcompletedby'] = 'Review completed by {$a}.';
+$string['templateinvalidlength'] = 'Enter nonempty text up to {$a} characters. Subjects must be a single line.';
+$string['templateinvalidtoken'] = 'Use only the documented placeholders, enclosed in single braces. Link placeholders are allowed only in the message body.';
+$string['templateduplicatelink'] = 'Use each link placeholder at most once.';
+$string['emailsettings'] = 'Email templates';
+$string['templatefield_requestsubject'] = 'Review request subject';
+$string['templatefield_requestbody'] = 'Review request message';
+$string['templatefield_completesubject'] = 'Review completion subject';
+$string['templatefield_completebody'] = 'Review completion message';
+$string['templatehelp'] = 'Plain text only. Available placeholders: {reviewer_firstname}, {reviewer_name}, {student_name}, {course_name}, {assignment_name}. Messages also support {review_link} and {assignment_link}. Completion templates additionally support {completed_by} and {completed_at}. Links are automatically labelled; missing links are appended. The assignment link is marked optional. Completion messages always identify the completing teacher. Settings apply to this assignment; changes affect messages not yet sent.';
+$string['previewemails'] = 'Preview emails';
+$string['restoreemails'] = 'Restore default emails';
+$string['emailpreviewheading'] = 'Email preview';
+$string['emailpreviewhelp'] = 'Synthetic example values only; links are examples. Nothing has been saved and no email has been sent. Save changes to apply these templates.';
+$string['requestemail'] = 'Review request email';
+$string['completionemail'] = 'Review completion email';
 $string['review'] = 'Review';
 $string['privacy:metadata'] = 'Review configuration, reviewer mappings, assessments, notification history and audit records.';
 $string['privacy:field'] = 'Information associated with a student or reviewer and their review activity.';
